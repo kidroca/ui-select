@@ -3518,6 +3518,7 @@ describe('ui-select tests', function () {
       expect(scope.fetchFromServer.calls.any()).toEqual(true);
     });
   });
+
   describe('Test key down key up and activeIndex should skip disabled choice', function () {
     it('should ignore disabled items, going down', function () {
       var el = createUiSelect({ uiDisableChoice: "person.age == 12" });
@@ -3628,5 +3629,106 @@ describe('ui-select tests', function () {
         });
       });
     });
+  });
+
+  describe('Test scrolling to highlighted item after opening', function () {
+
+    beforeEach(function () {
+
+      scope.people = scope.people.concat([
+        { name: 'Elvis', email: 'elvis@email.com', group: 'Foo', age: 23 },
+        { name: 'Ace', email: 'ace@email.com', group: 'Foo', age: 30 },
+        { name: 'Mitchell', email: 'mitchell@email.com', group: 'Foo', age: 41 }
+      ]);
+    });
+
+    it('Should set ctrl.active index to the selected person index', function () {
+
+      var lastIndex = scope.people.length - 1;
+      scope.selection.selected = scope.people[lastIndex];
+
+      var el = createUiSelect();
+      clickMatch(el);
+
+      expect(el.scope().$select.activeIndex).toEqual(lastIndex);
+    });
+
+    it('Should set ctrl.active index to the selected with `resetSearchInput = false`', function () {
+
+      var lastIndex = scope.people.length - 1;
+      scope.selection.selected = scope.people[lastIndex];
+
+      var el = createUiSelect({ resetSearchInput: false});
+      clickMatch(el);
+
+      expect(el.scope().$select.activeIndex).toEqual(lastIndex);
+    });
+
+    it('Should scroll the last item into view with animation enabled', inject(function ($animate) {
+
+      // This test should be updated with proper animation triggering and testing
+      // tried with `ngAnimateMock` but NO animation is triggered on digest or flush
+
+      scope.selection.selected = scope.people.slice().pop();
+      var el = createUiSelect();
+      var choicesContentEl = $(el).find('.ui-select-choices-content').get(0);
+
+      spyOn($animate, 'enabled').and.returnValue(true);
+      spyOn($animate, 'on');
+
+      clickMatch(el);
+
+      var animationHandler = $animate.on.calls.mostRecent().args[2];
+      animationHandler(choicesContentEl, 'close');
+      $timeout.flush();
+
+      var optionEl = $(el).find('.ui-select-choices-row div:contains("Mitchell")').get(0);
+
+      expect(choicesContentEl.scrollTop).toBeGreaterThan(0);
+      expect(isScrolledIntoContainer(choicesContentEl, optionEl)).toEqual(true);
+    }));
+
+    it('Should scroll the last item into view with animation disabled', inject(function ($animate) {
+
+      spyOn($animate, 'enabled').and.returnValue(false);
+
+      scope.selection.selected = scope.people.slice().pop();
+
+      var el = createUiSelect();
+      clickMatch(el);
+      $timeout.flush();
+
+      var choicesContentEl = $(el).find('.ui-select-choices-content').get(0);
+      var optionEl = $(el).find('.ui-select-choices-row div:contains("Mitchell")').get(0);
+
+      expect(choicesContentEl.scrollTop).toBeGreaterThan(0);
+      expect(isScrolledIntoContainer(choicesContentEl, optionEl)).toEqual(true);
+    }));
+
+    it('Should scroll the last item into view with `resetSearchInput = false`', function () {
+
+      scope.selection.selected = scope.people.slice().pop();
+
+      var el = createUiSelect({ resetSearchInput: false});
+      clickMatch(el);
+      $timeout.flush();
+
+      var choicesContentEl = $(el).find('.ui-select-choices-content').get(0);
+      var optionEl = $(el).find('.ui-select-choices-row div:contains("Mitchell")').get(0);
+
+      expect(choicesContentEl.scrollTop).toBeGreaterThan(0);
+      expect(isScrolledIntoContainer(choicesContentEl, optionEl)).toEqual(true);
+    });
+
+    function isScrolledIntoContainer(container, item)
+    {
+      var scrollTop = container.scrollTop;
+      var scrollBottom = scrollTop + container.clientHeight;
+
+      var itemTop = item.offsetTop;
+      var itemBottom = itemTop + item.clientHeight;
+
+      return (scrollTop <= itemTop) && (itemBottom <= scrollBottom);
+    }
   });
 });
