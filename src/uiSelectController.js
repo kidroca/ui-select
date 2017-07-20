@@ -92,30 +92,35 @@ uis.controller('uiSelectCtrl',
   function _resetSearchInput() {
     if (ctrl.resetSearchInput) {
       ctrl.search = EMPTY_SEARCH;
-      //reset activeIndex
-      if (!ctrl.multiple) {
-        if (ctrl.selected && ctrl.items.length) {
-          ctrl.activeIndex = _findIndex(ctrl.items, function(item){
-            return angular.equals(this, item);
-          }, ctrl.selected);
-        } else {
-          ctrl.activeIndex = 0;
-        }
+
+      _resetActiveIndex();
+    }
+  }
+
+  function _resetActiveIndex() {
+
+    if (!ctrl.multiple) {
+      if (ctrl.selected && ctrl.items.length) {
+        ctrl.activeIndex = _findIndex(ctrl.items, function(item){
+          return angular.equals(this, item);
+        }, ctrl.selected);
+      } else {
+        ctrl.activeIndex = 0;
       }
     }
   }
 
-    function _groupsFilter(groups, groupNames) {
-      var i, j, result = [];
-      for(i = 0; i < groupNames.length ;i++){
-        for(j = 0; j < groups.length ;j++){
-          if(groups[j].name == [groupNames[i]]){
-            result.push(groups[j]);
-          }
+  function _groupsFilter(groups, groupNames) {
+    var i, j, result = [];
+    for(i = 0; i < groupNames.length ;i++){
+      for(j = 0; j < groups.length ;j++){
+        if(groups[j].name == [groupNames[i]]){
+          result.push(groups[j]);
         }
       }
-      return result;
     }
+    return result;
+  }
 
   // When the user clicks on ui-select, displays the dropdown list
   ctrl.activate = function(initSearchValue, avoidReset) {
