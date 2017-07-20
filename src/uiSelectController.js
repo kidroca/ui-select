@@ -120,55 +120,72 @@ uis.controller('uiSelectCtrl',
   // When the user clicks on ui-select, displays the dropdown list
   ctrl.activate = function(initSearchValue, avoidReset) {
     if (!ctrl.disabled  && !ctrl.open) {
-      if(!avoidReset) _resetSearchInput();
 
-      $scope.$broadcast('uis:activate');
-      ctrl.open = true;
-      ctrl.activeIndex = ctrl.activeIndex >= ctrl.items.length ? 0 : ctrl.activeIndex;
-      // ensure that the index is set to zero for tagging variants
-      // that where first option is auto-selected
-      if ( ctrl.activeIndex === -1 && ctrl.taggingLabel !== false ) {
-        ctrl.activeIndex = 0;
-      }
-
-      var container = $element.querySelectorAll('.ui-select-choices-content');
-      var searchInput = $element.querySelectorAll('.ui-select-search');
-      if (ctrl.$animate && ctrl.$animate.on && ctrl.$animate.enabled(container[0])) {
-        var animateHandler = function(elem, phase) {
-          if (phase === 'start' && ctrl.items.length === 0) {
-            // Only focus input after the animation has finished
-            ctrl.$animate.off('removeClass', searchInput[0], animateHandler);
-            $timeout(function () {
-              ctrl.focusSearchInput(initSearchValue);
-            });
-          } else if (phase === 'close') {
-            // Only focus input after the animation has finished
-            ctrl.$animate.off('enter', container[0], animateHandler);
-            $timeout(function () {
-              ctrl.focusSearchInput(initSearchValue);
-            });
-          }
-        };
-
-        if (ctrl.items.length > 0) {
-          ctrl.$animate.on('enter', container[0], animateHandler);
-        } else {
-          ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
-        }
-      } else {
-        $timeout(function () {
-          ctrl.focusSearchInput(initSearchValue);
-          if(!ctrl.tagging.isActivated && ctrl.items.length > 1) {
-            _ensureHighlightVisible();
-          }
-        });
-      }
+      _displayDropdown(initSearchValue, avoidReset);
     }
     else if (ctrl.open && !ctrl.searchEnabled) {
       // Close the selection if we don't have search enabled, and we click on the select again
       ctrl.close();
     }
   };
+
+  function _displayDropdown(initSearchValue, avoidReset) {
+    if(!avoidReset) _resetSearchInput();
+
+    $scope.$broadcast('uis:activate');
+    ctrl.open = true;
+    ctrl.activeIndex = ctrl.activeIndex >= ctrl.items.length ? 0 : ctrl.activeIndex;
+    // ensure that the index is set to zero for tagging variants
+    // that where first option is auto-selected
+    if ( ctrl.activeIndex === -1 && ctrl.taggingLabel !== false ) {
+      ctrl.activeIndex = 0;
+    }
+
+    var container = $element.querySelectorAll('.ui-select-choices-content');
+    var searchInput = $element.querySelectorAll('.ui-select-search');
+
+    if (_canAnimate(container)) {
+      _animateDropdown(searchInput, initSearchValue, container);
+    } else {
+      $timeout(function () {
+        ctrl.focusSearchInput(initSearchValue);
+        if(!ctrl.tagging.isActivated && ctrl.items.length > 1) {
+          _ensureHighlightVisible();
+        }
+      });
+    }
+  }
+
+  function _canAnimate(element) {
+
+    return ctrl.$animate && ctrl.$animate.on && ctrl.$animate.enabled(element[0]);
+  }
+
+  function _animateDropdown(searchInput, initSearchValue, container) {
+      var animateHandler = function (elem, phase) {
+        if (phase === 'start' && ctrl.items.length === 0) {
+          // Only focus input after the animation has finished
+          ctrl.$animate.off('removeClass', searchInput[0], animateHandler);
+          $timeout(function () {
+            ctrl.focusSearchInput(initSearchValue);
+          });
+        }
+        else if (phase === 'close') {
+          // Only focus input after the animation has finished
+          ctrl.$animate.off('enter', container[0], animateHandler);
+          $timeout(function () {
+            ctrl.focusSearchInput(initSearchValue);
+          });
+        }
+      };
+
+      if (ctrl.items.length > 0) {
+        ctrl.$animate.on('enter', container[0], animateHandler);
+      }
+      else {
+        ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
+      }
+    }
 
   ctrl.focusSearchInput = function (initSearchValue) {
     ctrl.search = initSearchValue || ctrl.search;
