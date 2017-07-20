@@ -92,9 +92,9 @@ uis.controller('uiSelectCtrl',
   function _resetSearchInput() {
     if (ctrl.resetSearchInput) {
       ctrl.search = EMPTY_SEARCH;
-
-      _resetActiveIndex();
     }
+
+    _resetActiveIndex();
   }
 
   function _resetActiveIndex() {
@@ -134,11 +134,17 @@ uis.controller('uiSelectCtrl',
     }
   };
 
-  function _displayDropdown(initSearchValue, avoidReset) {
-    if(!avoidReset) _resetSearchInput();
+  function _displayDropdown(initSearchValue, avoidSearchReset) {
+    if(avoidSearchReset) {
+      _resetActiveIndex();
+    }
+    else {
+      _resetSearchInput();
+    }
 
     $scope.$broadcast('uis:activate');
     ctrl.open = true;
+
     ctrl.activeIndex = ctrl.activeIndex >= ctrl.items.length ? 0 : ctrl.activeIndex;
     // ensure that the index is set to zero for tagging variants
     // that where first option is auto-selected
