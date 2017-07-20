@@ -158,12 +158,7 @@ uis.controller('uiSelectCtrl',
     if (_canAnimate(container)) {
       _animateDropdown(searchInput, initSearchValue, container);
     } else {
-      $timeout(function () {
-        ctrl.focusSearchInput(initSearchValue);
-        if(!ctrl.tagging.isActivated && ctrl.items.length > 1 && ctrl.open) {
-          _ensureHighlightVisible();
-        }
-      });
+      _focusWhenReady(initSearchValue);
     }
   }
 
@@ -197,6 +192,15 @@ uis.controller('uiSelectCtrl',
         ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
       }
     }
+
+  function _focusWhenReady(initSearchValue) {
+    $timeout(function () {
+      ctrl.focusSearchInput(initSearchValue);
+      if(!ctrl.tagging.isActivated && ctrl.items.length > 1 && ctrl.open) {
+        _ensureHighlightVisible();
+      }
+    });
+  }
 
   ctrl.focusSearchInput = function (initSearchValue) {
     ctrl.search = initSearchValue || ctrl.search;
