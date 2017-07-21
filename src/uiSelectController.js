@@ -2,11 +2,12 @@
  * Contains ui-select "intelligence".
  *
  * The goal is to limit dependency on the DOM whenever possible and
- * put as much logic in the controller (instead of the link functions) as possible so it can be easily tested.
+ * put as much logic in the controller (instead of the link functions) as possible so it can be
+ * easily tested.
  */
 uis.controller('uiSelectCtrl',
-  ['$scope', '$element', '$timeout', '$filter', '$$uisDebounce', 'uisRepeatParser', 'uiSelectMinErr', 'uiSelectConfig', '$parse', '$injector', '$window',
-  function($scope, $element, $timeout, $filter, $$uisDebounce, RepeatParser, uiSelectMinErr, uiSelectConfig, $parse, $injector, $window) {
+  ['$scope', '$element', '$timeout', '$filter', '$$uisDebounce', 'uisRepeatParser', 'uiSelectMinErr', 'uiSelectConfig', '$parse', '$injector', '$window', '$q',
+  function($scope, $element, $timeout, $filter, $$uisDebounce, RepeatParser, uiSelectMinErr, uiSelectConfig, $parse, $injector, $window, $q) {
 
   var ctrl = this;
 
@@ -87,83 +88,115 @@ uis.controller('uiSelectCtrl',
   function _resetSearchInput() {
     if (ctrl.resetSearchInput) {
       ctrl.search = EMPTY_SEARCH;
-      //reset activeIndex
-      if (!ctrl.multiple) {
-        if (ctrl.selected && ctrl.items.length) {
-          ctrl.activeIndex = _findIndex(ctrl.items, function(item){
-            return angular.equals(this, item);
-          }, ctrl.selected);
-        } else {
-          ctrl.activeIndex = 0;
-        }
+    }
+
+    _resetActiveIndex();
+  }
+
+  function _resetActiveIndex() {
+
+    if (!ctrl.multiple) {
+      if (ctrl.selected && ctrl.items.length) {
+        ctrl.activeIndex = _findIndex(ctrl.items, function(item){
+          return angular.equals(this, item);
+        }, ctrl.selected);
+      } else {
+        ctrl.activeIndex = 0;
       }
     }
   }
 
-    function _groupsFilter(groups, groupNames) {
-      var i, j, result = [];
-      for(i = 0; i < groupNames.length ;i++){
-        for(j = 0; j < groups.length ;j++){
-          if(groups[j].name == [groupNames[i]]){
-            result.push(groups[j]);
-          }
+  function _groupsFilter(groups, groupNames) {
+    var i, j, result = [];
+    for(i = 0; i < groupNames.length ;i++){
+      for(j = 0; j < groups.length ;j++){
+        if(groups[j].name == [groupNames[i]]){
+          result.push(groups[j]);
         }
       }
-      return result;
     }
+    return result;
+  }
 
   // When the user clicks on ui-select, displays the dropdown list
   ctrl.activate = function(initSearchValue, avoidReset) {
     if (!ctrl.disabled  && !ctrl.open) {
-      if(!avoidReset) _resetSearchInput();
 
-      $scope.$broadcast('uis:activate');
-      ctrl.open = true;
-      ctrl.activeIndex = ctrl.activeIndex >= ctrl.items.length ? 0 : ctrl.activeIndex;
-      // ensure that the index is set to zero for tagging variants
-      // that where first option is auto-selected
-      if ( ctrl.activeIndex === -1 && ctrl.taggingLabel !== false ) {
-        ctrl.activeIndex = 0;
-      }
-
-      var container = $element.querySelectorAll('.ui-select-choices-content');
-      var searchInput = $element.querySelectorAll('.ui-select-search');
-      if (ctrl.$animate && ctrl.$animate.on && ctrl.$animate.enabled(container[0])) {
-        var animateHandler = function(elem, phase) {
-          if (phase === 'start' && ctrl.items.length === 0) {
-            // Only focus input after the animation has finished
-            ctrl.$animate.off('removeClass', searchInput[0], animateHandler);
-            $timeout(function () {
-              ctrl.focusSearchInput(initSearchValue);
-            });
-          } else if (phase === 'close') {
-            // Only focus input after the animation has finished
-            ctrl.$animate.off('enter', container[0], animateHandler);
-            $timeout(function () {
-              ctrl.focusSearchInput(initSearchValue);
-            });
-          }
-        };
-
-        if (ctrl.items.length > 0) {
-          ctrl.$animate.on('enter', container[0], animateHandler);
-        } else {
-          ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
-        }
-      } else {
-        $timeout(function () {
-          ctrl.focusSearchInput(initSearchValue);
-          if(!ctrl.tagging.isActivated && ctrl.items.length > 1) {
-            _ensureHighlightVisible();
-          }
-        });
-      }
+      _displayDropdown(initSearchValue, avoidReset);
     }
     else if (ctrl.open && !ctrl.searchEnabled) {
       // Close the selection if we don't have search enabled, and we click on the select again
       ctrl.close();
     }
   };
+
+  function _displayDropdown(initSearchValue, avoidSearchReset) {
+    if(avoidSearchReset) {
+      _resetActiveIndex();
+    }
+    else {
+      _resetSearchInput();
+    }
+
+    $scope.$broadcast('uis:activate');
+    ctrl.open = true;
+
+    ctrl.activeIndex = ctrl.activeIndex >= ctrl.items.length ? 0 : ctrl.activeIndex;
+    // ensure that the index is set to zero for tagging variants
+    // that where first option is auto-selected
+    if ( ctrl.activeIndex === -1 && ctrl.taggingLabel !== false ) {
+      ctrl.activeIndex = 0;
+    }
+
+    var container = $element.querySelectorAll('.ui-select-choices-content');
+    var searchInput = $element.querySelectorAll('.ui-select-search');
+
+    if (_canAnimate(container)) {
+      // Only focus input after the animation has finished
+      _animateDropdown(searchInput, container)
+        .then(_focusWhenReady.bind(null, initSearchValue));
+    } else {
+      _focusWhenReady(initSearchValue);
+    }
+  }
+
+  function _canAnimate(element) {
+
+    return ctrl.$animate && ctrl.$animate.on && ctrl.$animate.enabled(element[0]);
+  }
+
+  function _animateDropdown(searchInput, container) {
+
+      return $q(function (resolve, reject) {
+
+        var animateHandler = function (elem, phase) {
+          if (phase === 'start' && ctrl.items.length === 0) {
+            ctrl.$animate.off('removeClass', searchInput[0], animateHandler);
+            resolve();
+          }
+          else if (phase === 'close') {
+            ctrl.$animate.off('enter', container[0], animateHandler);
+            resolve();
+          }
+        };
+
+        if (ctrl.items.length > 0) {
+          ctrl.$animate.on('enter', container[0], animateHandler);
+        }
+        else {
+          ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
+        }
+      });
+    }
+
+  function _focusWhenReady(initSearchValue) {
+    $timeout(function () {
+      ctrl.focusSearchInput(initSearchValue);
+      if(!ctrl.tagging.isActivated && ctrl.items.length > 1) {
+        _ensureHighlightVisible();
+      }
+    });
+  }
 
   ctrl.focusSearchInput = function (initSearchValue) {
     ctrl.search = initSearchValue || ctrl.search;
@@ -290,7 +323,8 @@ uis.controller('uiSelectCtrl',
   /**
    * Typeahead mode: lets the user refresh the collection using his own function.
    *
-   * See Expose $select.search for external / remote filtering https://github.com/angular-ui/ui-select/pull/31
+   * See Expose $select.search for external / remote filtering
+   * https://github.com/angular-ui/ui-select/pull/31
    */
   ctrl.refresh = function(refreshAttr) {
     if (refreshAttr !== undefined) {
