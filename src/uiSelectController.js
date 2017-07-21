@@ -2,11 +2,12 @@
  * Contains ui-select "intelligence".
  *
  * The goal is to limit dependency on the DOM whenever possible and
- * put as much logic in the controller (instead of the link functions) as possible so it can be easily tested.
+ * put as much logic in the controller (instead of the link functions) as possible so it can be
+ * easily tested.
  */
 uis.controller('uiSelectCtrl',
-  ['$scope', '$element', '$timeout', '$filter', '$$uisDebounce', 'uisRepeatParser', 'uiSelectMinErr', 'uiSelectConfig', '$parse', '$injector', '$window',
-  function($scope, $element, $timeout, $filter, $$uisDebounce, RepeatParser, uiSelectMinErr, uiSelectConfig, $parse, $injector, $window) {
+  ['$scope', '$element', '$timeout', '$filter', '$$uisDebounce', 'uisRepeatParser', 'uiSelectMinErr', 'uiSelectConfig', '$parse', '$injector', '$window', '$q',
+  function($scope, $element, $timeout, $filter, $$uisDebounce, RepeatParser, uiSelectMinErr, uiSelectConfig, $parse, $injector, $window, $q) {
 
   var ctrl = this;
 
@@ -156,7 +157,9 @@ uis.controller('uiSelectCtrl',
     var searchInput = $element.querySelectorAll('.ui-select-search');
 
     if (_canAnimate(container)) {
-      _animateDropdown(searchInput, initSearchValue, container);
+      // Only focus input after the animation has finished
+      _animateDropdown(searchInput, container)
+        .then(_focusWhenReady.bind(null, initSearchValue));
     } else {
       _focusWhenReady(initSearchValue);
     }
@@ -167,26 +170,28 @@ uis.controller('uiSelectCtrl',
     return ctrl.$animate && ctrl.$animate.on && ctrl.$animate.enabled(element[0]);
   }
 
-  function _animateDropdown(searchInput, initSearchValue, container) {
-      var animateHandler = function (elem, phase) {
-        if (phase === 'start' && ctrl.items.length === 0) {
-          // Only focus input after the animation has finished
-          ctrl.$animate.off('removeClass', searchInput[0], animateHandler);
-          _focusWhenReady(initSearchValue);
-        }
-        else if (phase === 'close') {
-          // Only focus input after the animation has finished
-          ctrl.$animate.off('enter', container[0], animateHandler);
-          _focusWhenReady(initSearchValue);
-        }
-      };
+  function _animateDropdown(searchInput, container) {
 
-      if (ctrl.items.length > 0) {
-        ctrl.$animate.on('enter', container[0], animateHandler);
-      }
-      else {
-        ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
-      }
+      return $q(function (resolve, reject) {
+
+        var animateHandler = function (elem, phase) {
+          if (phase === 'start' && ctrl.items.length === 0) {
+            ctrl.$animate.off('removeClass', searchInput[0], animateHandler);
+            resolve();
+          }
+          else if (phase === 'close') {
+            ctrl.$animate.off('enter', container[0], animateHandler);
+            resolve();
+          }
+        };
+
+        if (ctrl.items.length > 0) {
+          ctrl.$animate.on('enter', container[0], animateHandler);
+        }
+        else {
+          ctrl.$animate.on('removeClass', searchInput[0], animateHandler);
+        }
+      });
     }
 
   function _focusWhenReady(initSearchValue) {
@@ -326,7 +331,8 @@ uis.controller('uiSelectCtrl',
   /**
    * Typeahead mode: lets the user refresh the collection using his own function.
    *
-   * See Expose $select.search for external / remote filtering https://github.com/angular-ui/ui-select/pull/31
+   * See Expose $select.search for external / remote filtering
+   * https://github.com/angular-ui/ui-select/pull/31
    */
   ctrl.refresh = function(refreshAttr) {
     if (refreshAttr !== undefined) {
