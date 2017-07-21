@@ -15,6 +15,7 @@ module.exports = function(config) {
       'node_modules/angular-mocks/angular-mocks.js',
 
       'dist/select.js',
+      'dist/select.css',
       'test/helpers.js',
       'test/**/*.spec.js'
     ],
